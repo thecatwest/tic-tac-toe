@@ -1,49 +1,102 @@
+import { retry } from "async";
 import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
 
+// replace Square class component with function component instead
+// fn components are simpler way to write components that only contain a render method and don't have their own state
+function Square(props) {
+  return (
+    <button className="square" onClick={props.onClick}>
+      {props.value}
+    </button>
+  );
+}
 // React Square Component
 // renders single button
-class Square extends React.Component {
-  // to "remember" things, like a click, components use State
-  // components can have state by settings this.state in constructor. this.state is considered as private to component it's defined in
-  // add constructor class to initialize state
-  // note: in JS classes, always need to call super when defining constructor of a subclass. ALL React component classes that have a constructor should start with a super(props) call
-  constructor(props) {
-    super(props);
-    this.state = {
-      value: null,
-    };
-  }
+// class Square extends React.Component {
+//   // to "remember" things, like a click, components use State
+//   // components can have state by settings this.state in constructor. this.state is considered as private to component it's defined in
+//   // add constructor class to initialize state
+//   // note: in JS classes, always need to call super when defining constructor of a subclass. ALL React component classes that have a constructor should start with a super(props) call
+// //   delete this constructor because it no longer keeps track of game's state
+// //   constructor(props) {
+// //     super(props);
+// //     this.state = {
+// //       value: null,
+// //     };
+// //   }
 
-  render() {
-    // pass prop called value to child Square component from parent Board component using this.props.value
-    return (
-      <button
-        className="square"
-        // using arrow fn, pass in a fn as onClick prop
-        // set onClick event handler to this.setState({...}) so React will re-render that Square whenever <button> is clicked.
-        // after render update, Square's this.state.value will be 'X'
-        // when you call setState in a component, React auto updates child components inside too
-        onClick={() => this.setState({ value: "X" })}
-      >
-        {/* To display current state's value when clicked, change Square's render to this.state.value instead of this.props.value */}
-        {this.state.value}
-      </button>
-    );
-  }
-}
+//   render() {
+//     // pass prop called value to child Square component from parent Board component using this.props.value
+//     return (
+//       <button
+//         className="square"
+//         // using arrow fn, pass in a fn as onClick prop
+//         // set onClick event handler to this.setState({...}) so React will re-render that Square whenever <button> is clicked.
+//         // after render update, Square's this.state.value will be 'X'
+//         // when you call setState in a component, React auto updates child components inside too
+//         onClick={() => this.props.onClick()}
+//       >
+//         {/* To display current state's value when clicked, change Square's render to this.state.value instead of this.props.value */}
+//         {this.props.value}
+//       </button>
+//     );
+//   }
+// }
 
 // React Board Component
 // renders 9 sqaures, three in each row, for tic-tac-toe board
 class Board extends React.Component {
-  // renderSquare method; pass prop called value to child Square component from parent Board component
+  // to collect data from multiple children or have to child components communicate w/ each other, must declare shared state in their parent component instead
+  // parent component can pass state back down to children by using props, keeping child comps in sync w/ each other and parent
+  constructor(props) {
+    super(props);
+    this.state = {
+      // set Board's initial state to contain array of 9 nulls corresponding to 9 squares
+      squares: Array(9).fill(null),
+      // set first move to be 'X' by default; xIsNext is a boolean that will be flipped to determine which player goes next (flipped in the handleClick class below), and game state is saved
+      xIsNext: true,
+    };
+  }
+
+  // add handleClick to Board class
+  handleClick(i) {
+    // call .slice() to create a copy of the squares array to modify instead of modifying existing array. Essentially, mutating data by saving the old version and making a new copy in its place
+    // immutability makes complex features easier to implement. Allows you to reuse previous data versions
+    // detecting changes in immutable objects is also easier than in mutable objects because it can be compared to previous version
+    const squares = this.state.squares.slice();
+    // set up functionality to return early by ignoring a click if someone has won the game or if a square is already filled
+    if (calculateWinner(squares) || squares[i]) {
+        return;
+    }
+    squares[i] = this.state.xIsNext ? "X" : "O";
+    this.setState({
+      squares: squares,
+      xIsNext: !this.state.xIsNext,
+    });
+  }
+
+  // renderSquare method; pass this.state.squares to instruct each individual Square about its current value
   renderSquare(i) {
-    return <Square value={i} />;
+    return (
+      <Square
+        value={this.state.squares[i]}
+        // Pass down fn from Board to the Square, and have Square call that fn when a square is clicked.
+        // Since state is considered private to a component that defines it, must pass down the fn as noted above
+        onClick={() => this.handleClick(i)}
+      />
+    );
   }
 
   render() {
-    const status = "Next player: X";
+    const winner = calculateWinner(this.state.squares);
+    let status;
+    if (winner) {
+        status = 'Winner' + winner;
+    } else {
+        status = "Next player: " + (this.state.xIsNext ? "X" : "O");
+    }
 
     return (
       <div>
@@ -84,6 +137,27 @@ class Game extends React.Component {
       </div>
     );
   }
+}
+
+// helper function to determine a winner
+function calculateWinner(squares) {
+  const lines = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
+  for (let i = 0; i < lines.length; i++) {
+    const [a, b, c] = lines[i];
+    if (squares[a] && squares[b] === squares[b] && squares[a] === squares[c]) {
+      return squares[a];
+    }
+  }
+  return null;
 }
 
 // ========================================

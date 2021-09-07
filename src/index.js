@@ -1,4 +1,3 @@
-import { retry } from "async";
 import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
@@ -48,59 +47,67 @@ function Square(props) {
 // React Board Component
 // renders 9 sqaures, three in each row, for tic-tac-toe board
 class Board extends React.Component {
-  // to collect data from multiple children or have to child components communicate w/ each other, must declare shared state in their parent component instead
-  // parent component can pass state back down to children by using props, keeping child comps in sync w/ each other and parent
-  constructor(props) {
-    super(props);
-    this.state = {
-      // set Board's initial state to contain array of 9 nulls corresponding to 9 squares
-      squares: Array(9).fill(null),
-      // set first move to be 'X' by default; xIsNext is a boolean that will be flipped to determine which player goes next (flipped in the handleClick class below), and game state is saved
-      xIsNext: true,
-    };
-  }
+  // set up Board component to receive squares and onClick props from Game component
+  // Since we now have single click handler in Board for many Squares, must pass the location of each Square into the onClick hander to indicate which square was clicked
+
+  //   // to collect data from multiple children or have to child components communicate w/ each other, must declare shared state in their parent component instead
+  //   // parent component can pass state back down to children by using props, keeping child comps in sync w/ each other and parent
+  //   constructor(props) {
+  //     super(props);
+  //     this.state = {
+  //       // set Board's initial state to contain array of 9 nulls corresponding to 9 squares
+  //       squares: Array(9).fill(null),
+  //       // set first move to be 'X' by default; xIsNext is a boolean that will be flipped to determine which player goes next (flipped in the handleClick class below), and game state is saved
+  //       xIsNext: true,
+  //     };
+  //   }
 
   // add handleClick to Board class
-  handleClick(i) {
-    // call .slice() to create a copy of the squares array to modify instead of modifying existing array. Essentially, mutating data by saving the old version and making a new copy in its place
-    // immutability makes complex features easier to implement. Allows you to reuse previous data versions
-    // detecting changes in immutable objects is also easier than in mutable objects because it can be compared to previous version
-    const squares = this.state.squares.slice();
-    // set up functionality to return early by ignoring a click if someone has won the game or if a square is already filled
-    if (calculateWinner(squares) || squares[i]) {
-        return;
-    }
-    squares[i] = this.state.xIsNext ? "X" : "O";
-    this.setState({
-      squares: squares,
-      xIsNext: !this.state.xIsNext,
-    });
-  }
+  //   move handleClick method from Board component to Game component
+  //   handleClick(i) {
+  //     //   move handleClick method from Board component to Game component
+  //     // call .slice() to create a copy of the squares array to modify instead of modifying existing array. Essentially, mutating data by saving the old version and making a new copy in its place
+  //     // immutability makes complex features easier to implement. Allows you to reuse previous data versions
+  //     // detecting changes in immutable objects is also easier than in mutable objects because it can be compared to previous version
+  //     const squares = current.squares.slice();
+  //     // set up functionality to return early by ignoring a click if someone has won the game or if a square is already filled
+  //     if (calculateWinner(squares) || squares[i]) {
+  //       return;
+  //     }
+  //     squares[i] = this.state.xIsNext ? "X" : "O";
+  //     this.setState({
+  //       squares: squares,
+  //       xIsNext: !this.state.xIsNext,
+  //     });
+  //   }
 
   // renderSquare method; pass this.state.squares to instruct each individual Square about its current value
   renderSquare(i) {
     return (
       <Square
-        value={this.state.squares[i]}
+        //   replace this.state.squares with this.props.squares
+        value={this.props.squares[i]}
         // Pass down fn from Board to the Square, and have Square call that fn when a square is clicked.
         // Since state is considered private to a component that defines it, must pass down the fn as noted above
-        onClick={() => this.handleClick(i)}
+        // replace this.handleClick with this.props.onClick
+        onClick={() => this.props.onClick(i)}
       />
     );
   }
 
   render() {
-    const winner = calculateWinner(this.state.squares);
-    let status;
-    if (winner) {
-        status = 'Winner' + winner;
-    } else {
-        status = "Next player: " + (this.state.xIsNext ? "X" : "O");
-    }
+    //   Game component is now rendering game's status, can remove the corresponding code from this render method:
+    // const winner = calculateWinner(this.state.squares);
+    // let status;
+    // if (winner) {
+    //     status = 'Winner' + winner;
+    // } else {
+    //     status = "Next player: " + (this.state.xIsNext ? "X" : "O");
+    // }
 
     return (
       <div>
-        <div className="status">{status}</div>
+        {/* Game component is now rendering game's status, can remove the corresponding code from this render method: */}
         <div className="board-row">
           {this.renderSquare(0)}
           {this.renderSquare(1)}
@@ -124,22 +131,113 @@ class Board extends React.Component {
 // React Game Component
 // renders Board component
 class Game extends React.Component {
+  // set up initial state within constructor
+  constructor(props) {
+    super(props);
+    this.state = {
+      history: [
+        {
+          squares: Array(9).fill(null),
+        },
+      ],
+      xIsNext: true,
+    };
+  }
+
+  handleClick(i) {
+    // replace this.state.history with this.state.history.slice... to ensure that if user goes back in time and then makes a new move, all future "move" data history is thrown away and only current info is kept
+    const history = this.state.history.slice(0, this.state.stepNumber + 1);
+    const current = history[history.length - 1];
+    const squares = current.squares.slice();
+    if (calculateWinner(squares) || squares[i]) {
+      return;
+    }
+    squares[i] = this.state.xIsNext ? "X" : "O";
+    this.setState({
+      // concatenate new history entries onto history
+      // note: unlike push() method, concat() method does not mutate original array
+      history: history.concat([
+        {
+          squares: squares
+        },
+      ]),
+      // add stepNumber to Game component's state to indicate which step is currently being viewed
+      // set stepNumber to history.length to ensure it doesn't get stuck showing the same move after a new one has been made
+      stepNumber: history.length,
+      xIsNext: !this.state.xIsNext,
+    });
+  }
+
+  // define jumpTo method in Game to update stepNumber. Also set xIsNext to true if number that stepNumber is being changed to is even
+  jumpTo(step) {
+    this.setState({
+      stepNumber: step,
+      xIsNext: step % 2 === 0,
+    });
+  }
+
+  // update Game component's render fn to use most recent history entry to determine & display game's status
   render() {
+    // concatenate new history entries onto history
+    const history = this.state.history;
+    // update current variable from always rendering last move to rendering currently selected move according to stepNumber
+    const current = history[this.state.stepNumber];
+    const winner = calculateWinner(current.squares);
+
+    // using map method, map our history of moves to React elements representing buttons on the screen, and display list of buttons to "past" moves
+    const moves = history.map((step, move) => {
+      const desc = move ? "Go to move #" + move : "Go to game start";
+      return (
+        // must implement a key for the moves: React takes each list's items and checks for changes. W/o a proper key, React does not know the ID of each component on a re-render. Very important for dynamic lists!
+        // keys do not need to be globally unique, just unique between components and siblings
+        <li key={move}>
+          <button onClick={() => this.jumpTo(move)}>{desc}</button>
+        </li>
+      );
+    });
+
+    let status;
+    if (winner) {
+      status = "Winner: " + winner;
+    } else {
+      status = "Next player: " + (this.state.xIsNext ? "X" : "O");
+    }
+    // const squares = current.squares.slice();
+
+    // // set up functionality to return early by ignoring a click if someone has won the game or if a square is already filled
+    // if (calculateWinner(squares) || squares[i]) {
+    //   return;
+    // }
+    // squares[i] = this.state.xIsNext ? "X" : "O";
+    // this.setState({
+    //   history: history.concat([
+    //     {
+    //       squares: squares,
+    //     },
+    //   ]),
+    //   xIsNext: !this.state.xIsNext,
+    // });
+
     return (
       <div className="game">
         <div className="game-board">
-          <Board />
+          <Board
+            squares={current.squares}
+            onClick={i => this.handleClick(i)}
+          />
         </div>
         <div className="game-info">
-          <div>{/* status */}</div>
-          <ol>{/* TODO */}</ol>
+          <div>{status}</div>
+          {/* add moves buttons */}
+          <ol>{moves}</ol>
         </div>
       </div>
     );
   }
 }
 
-// helper function to determine a winner
+ReactDOM.render(<Game />, document.getElementById("root"));
+
 function calculateWinner(squares) {
   const lines = [
     [0, 1, 2],
@@ -149,11 +247,11 @@ function calculateWinner(squares) {
     [1, 4, 7],
     [2, 5, 8],
     [0, 4, 8],
-    [2, 4, 6],
+    [2, 4, 6]
   ];
   for (let i = 0; i < lines.length; i++) {
     const [a, b, c] = lines[i];
-    if (squares[a] && squares[b] === squares[b] && squares[a] === squares[c]) {
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
       return squares[a];
     }
   }
@@ -162,7 +260,6 @@ function calculateWinner(squares) {
 
 // ========================================
 
-ReactDOM.render(<Game />, document.getElementById("root"));
 
 // ---------------------------------- <Notes below this line> ------------------------------------------
 
